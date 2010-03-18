@@ -1,0 +1,23 @@
+
+<form method="post" action="/foo/ding">
+ <input type="text" name="username" value="" onblur="javascript:foobar(this.value);"/>
+</form>
+
+<div id="myAjaxContent">
+ 			<div id="mvcHiddenDiv1263457471675" style="display: none"></div>
+						<script language="JavaScript" type="text/javascript">
+			<!--
+			function foobar(username) {
+						$.post('/db65e57f0883e66f2605c421bad7eb3c/func', 
+			{
+				'username': username			}, function(data) {
+						 	$('#mvcHiddenDiv1263457471675').parent().append(data)
+			 	$('#mvcHiddenDiv1263457471675').remove();
+					});
+						
+			}
+			//-->
+			</script>
+			
+</div>
+

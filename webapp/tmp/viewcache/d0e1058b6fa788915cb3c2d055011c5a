@@ -1,0 +1,69 @@
+
+<h1>Sign up</h1>
+
+<?
+		$_formControlModel = Model::getModel('User');
+		if(!isset($MVC_CURRENT_MODEL)) {
+			$MVC_CURRENT_MODEL = $_formControlModel;
+		}
+		
+?><form method="post" action="/82d0f0fa8551de8b7eb5ecb65eae0261_1/func">
+
+ <?		if(!($_formControlModel->modelCache->hasField('username'))) {
+			echo '<div class="mvcControlWarning" style="color: red">Warning, model ' . $_formControlModel->modelName . ' has no member ' .
+					'named username</div>';
+		}
+		?><?		if(!empty($MVC_CURRENT_MODEL->errors["username"])) {
+			echo '<div class="mvcModelError">' . $MVC_CURRENT_MODEL->errors["username"] . '</div>';
+		}	
+		?><div class="mvcInput" id="inputFldusername"><label for="username">Select an username</label>
+<input type="text" name="username" onblur="javascript:$('#myAjaxContent').html('');foobar(this.value)"/></div>
+
+ <div id="myAjaxContent">
+ </div>
+ 			<script language="JavaScript" type="text/javascript">
+			<!--
+			function foobar(username) {
+						$.post('/82d0f0fa8551de8b7eb5ecb65eae0261_2/func', 
+			{
+				'username': username			}, function(data) {
+							$('#myAjaxContent').append(data);
+					});
+						
+			}
+			//-->
+			</script>
+			
+  
+ <?		if(!($_formControlModel->modelCache->hasField('password'))) {
+			echo '<div class="mvcControlWarning" style="color: red">Warning, model ' . $_formControlModel->modelName . ' has no member ' .
+					'named password</div>';
+		}
+		?>		<div class="mvcInput" id="inputFldpassword">
+		 <label for="password">Select a password</label>
+		 <input type="password" name="password"
+	 			/>
+	    </div>
+		<div class="mvcInput" id="inputFldpassword_verify">
+		 <label for="password">Repeat password</label>
+		 <input type="password" name="password_verify"
+	 			/>
+	    </div>	    
+		
+ 
+ <?		if(!($_formControlModel->modelCache->hasField('email'))) {
+			echo '<div class="mvcControlWarning" style="color: red">Warning, model ' . $_formControlModel->modelName . ' has no member ' .
+					'named email</div>';
+		}
+		?><?		if(!empty($MVC_CURRENT_MODEL->errors["email"])) {
+			echo '<div class="mvcModelError">' . $MVC_CURRENT_MODEL->errors["email"] . '</div>';
+		}	
+		?><div class="mvcInput" id="inputFldemail"><label for="email">E-mail address</label>
+<input type="text" name="email"/></div>
+
+ 
+ <input type="submit" name="submit" value="Register!"/>
+
+</form>
+
+
