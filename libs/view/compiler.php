@@ -15,7 +15,7 @@ class ViewCompiler {
 	}
 	
 	private function traverse($node) {
-		
+				
 		if(preg_match("#^mvc:#", $node->nodeName)) {
 
 			$nodeName = str_replace('mvc:', '', $node->tagName);
@@ -109,7 +109,7 @@ class ViewCompiler {
 			if(filemtime($cacheFile) > filemtime($path)) {
 				return $cacheFile;
 			}
-		}			
+		}
 		
 		$viewFile = file_get_contents($path);
 		
@@ -137,6 +137,12 @@ class ViewCompiler {
 		return $attribs;
 	 }
 	 
+	 private static function dumpAttribs($node) {
+	 	foreach($node->attributes as $attribute) {
+					echo $attribute->name . "=\"" . $attribute->value . "\" ";
+		}
+	 }
+	 
 	/**
 	 * Generates a HTML-fragment from the children of the node.
 	 */
@@ -145,6 +151,7 @@ class ViewCompiler {
 		$string = "";
 		
 		foreach($elem->childNodes as $node) {
+
 			if($node->nodeType == XML_ELEMENT_NODE) {
 				
 				// Create normal HTML -element
@@ -155,17 +162,13 @@ class ViewCompiler {
 				}
 				
 				if($node->hasChildNodes()) {
+					
 					$string .= sprintf($elemBase, $node->tagName, join($attributes, " "));
-					
-					foreach($node->childNodes as $child) {
-						if($child->nodeType == XML_ELEMENT_NODE) {
-							$string .= ViewCompiler::collect($child);
-						} else {
-							$string .= (string)$child->nodeValue;
-						}
-					}
-					
+					$string .= ViewCompiler::collect($node);
 					$string .= "</" . $node->tagName . ">";
+					
+				} else {
+					$string .= sprintf($elemBase, $node->tagName, join($attributes, " "));
 				}
 				
 			} else {
@@ -181,14 +184,16 @@ class ViewCompiler {
 			"#<!--#" => "MVC_HTML_COMMENT_START",
 			"#-->#" => "MVC_HTML_COMMENT_END",
 			"#<\?(php)?#" => "MVC_PHP_CODE_START",
-			"#\?>#" => "MVC_PHP_CODE_END"
+			"#\?>#" => "MVC_PHP_CODE_END",
+			"#< #" => "MVC_OPEN_TAG"
 		);
 	
 	private static $clean_rules = array(
 			"#MVC_HTML_COMMENT_START#" => "<!--",
 			"#MVC_HTML_COMMENT_END#" => "-->",
 			"#MVC_PHP_CODE_START#" => "<?",
-			"#MVC_PHP_CODE_END#" => "?>"
+			"#MVC_PHP_CODE_END#" => "?>",
+			"#MVC_OPEN_TAG#" => "< "
 		);
 	
 	

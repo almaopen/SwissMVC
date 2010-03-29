@@ -34,8 +34,8 @@ class AjaxHandler implements ControlHandler {
 				 * define the exported variables with the "export" parameter. Both expect a comma-separated
 				 * list
 				 */
-				$exportVariables = ($node->HasAttribute("parameters") ? explode(", ", $node->getAttribute("parameters")) :
-							($node->hasAttributes("export") ? explode(",", $node->getAttribute("export")) : array()));
+				$exportVariables = ($node->hasAttribute("parameters") ? explode(", ", $node->getAttribute("parameters")) :
+							($node->hasAttribute("export") ? explode(",", $node->getAttribute("export")) : array()));
 				if(!empty($exportVariables)) {
 					foreach($exportVariables as &$param) {
 						$param = "'$param': $param";

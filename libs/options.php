@@ -91,7 +91,7 @@ class Options {
 	 */
 	public function saveFromInput($input) {
 		foreach(array_keys($this->_realmOptions) as $key) {
-			if(!empty($input[$key]) || $input[$key] == 0) {
+			if(isset($input[$key])) {
 				$this->setOptionValue($key, $this->_getOptionValue($input[$key], $this->_realmConfig[$key]["type"]));
 			}
 		}

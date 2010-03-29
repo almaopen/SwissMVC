@@ -17,14 +17,14 @@ class View {
 		$this->path = $viewPath;
 	}
 	
-	public function render($vars, $contoller, $function) {
+	public function render($vars, $controller, $function) {
 		
-		$this->html = new HtmlHelper($contoller);
+		$this->html = new HtmlHelper($controller);
 		
 		extract($vars);
 		
 		ob_start();
-		include(ViewCompiler::getView($this->path, $contoller, $function, $this->html));
+		include(ViewCompiler::getView($this->path, $controller, $function, $this->html));
 		$contents = ob_get_contents();
 		ob_end_clean();
 		

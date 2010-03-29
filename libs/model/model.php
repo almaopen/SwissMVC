@@ -136,18 +136,10 @@ class Model {
 			/**
 			 * See if we have any model listeners that listen to the DELETE event of this model
 			 */
-			$model_listeners = array();
+			$model_listeners = ModelListener::findListeners($this->modelName);
 			$model_items = null;
-			if(!empty(AppConfiguration::$MODEL_LISTENERS[$this->modelName])) {
-				foreach(AppConfiguration::$MODEL_LISTENERS[$this->modelName] as $listener) {
-					if(in_array("DELETE", $listener["events"])) {
-						$model_listeners[] = $listener;
-					}
-				}
-				if(!empty($model_listeners)) {
-					// We need to load the data to be able to hand it to the listeners
+			if(!empty($model_listeners)) {
 					$model_items = Datasource::query(sprintf("select * from `%s` where %s", $this->modelName, join($cond, " AND ")));
-				}
 			}
 			
 			Datasource::query(
@@ -156,20 +148,9 @@ class Model {
 						join($cond, " AND "))
 			);
 			
+			/** Invoke the listeners */
 			if(!empty($model_listeners)) {
-				// Fire off events to the listeners
-				foreach($model_listeners as $listener) {
-					$listener_class = $listener["listener"];
-					$listener_file = WEBAPP_DIR . "/models/listeners/" . Inflector::decamelize($listener["listener"]) . ".php";
-					if(!class_exists($listener_class)) {
-						require_once($listener_file);
-					}
-					$listener_impl = new $listener_class();
-					foreach($model_items as $item) {
-						// Invoke the listener
-						$listener_impl->delete($item);
-					}
-				}
+				ModelListener::invokeListeners($model_listeners, $model_items);
 			}
 			
 			
@@ -202,11 +183,25 @@ class Model {
 							continue;
 						}
 					}
+					
+					// See if we have listeners for this as well
+					$sb_model_listeners = ModelListener::findListeners($sbModelName);	
+					if(!empty($sb_model_listeners)) {
+						$sb_model_items = Datasource::query(
+							sprintf("select * from `%s` where `%s`=%s", $sbModelName, $fieldname, 
+									$this->originalValues[$this->modelCache->getPrimaryKey()]));
+					}
+									
+					
 					Datasource::query(
 						sprintf($query, $sbModelName, 
 							$fieldname, 
 							$this->originalValues[$this->modelCache->getPrimaryKey()])
 					);	
+					
+					if(!empty($sb_model_items)) {
+						ModelListener::invokeListeners($sb_model_listeners, $sb_model_items);						
+					}
 					
 				}
 				
@@ -284,6 +279,7 @@ class Model {
 
 		/* Create models from the query results */
 		$dataPopulatedModels = array();
+		
 		/* 
 		 * Yes, there is overheader here, as the model -object used for querying 
 		 * is actually not the one then being returned by the load() -call
@@ -365,6 +361,22 @@ class Model {
 								 join($dataFields, ",")
 								));
 								
+		/**
+		 * Invoke listeners, if we have any
+		 */
+		if(is_array(ModelListener::findListeners($this->modelName, "INSERT"))) {
+
+			// Add the ID
+			$data[$this->modelCache->getPrimaryKey()] = $id;
+			foreach($data as $key => $value) {
+				if(!in_array($key, $this->modelCache->getFields())) {
+					unset($data[$key]);
+				}
+			}
+			ModelListener::invokeListeners(
+					ModelListener::findListeners($this->modelName, "INSERT"), array($data), "INSERT");
+		}
+								
 		return $id;
 		
 	}
@@ -375,7 +387,7 @@ class Model {
 			return false;
 		}
 		
-		$updateQueryBase = "update `%s` set %s where `%s`=%i";
+		$updateQueryBase = "update `%s` set %s where `%s`=%s";
 		
 		/*
 		 * Go through all the fields to see what's changed, we only want to update
@@ -400,6 +412,19 @@ class Model {
 					);
 					
 		Datasource::query($query);
+		
+		/**
+		 * Invoke any listeners we have
+		 */
+		if(is_array(ModelListener::findListeners($this->modelName, "UPDATE"))) {
+			$data = array();
+			foreach($this->fieldNames as $name) {
+				$data[$name] = $this->{$name};
+			}
+			ModelListener::invokeListeners(
+					ModelListener::findListeners($this->modelName, "INSERT"), $data, "INSERT");
+		}
+		
 		
 		return true;
 		
@@ -496,7 +521,13 @@ class Model {
  						$whereConditions[] = "`" . $this->modelName . "`.`$field` " . ($negation ? "not" : "")  . " in (" . join($valueArray,",") . ")";
  					}
  				} else {
-					$value = $this->modelCache->sanitize($field, $value);
+ 					if($value != null) {
+						$value = $this->modelCache->sanitize($field, $value);
+ 					} else {
+ 						$operator = " IS " . ($negation ? "NOT " : "");
+ 						$value = "NULL";
+ 						$negation = false;
+ 					}
 					$whereConditions[] = "`" . $this->modelName . "`.`$field` " . ($negation ? "!" : "")  . "$operator $value";
  				}
  			}
@@ -556,9 +587,9 @@ class Model {
 		if($row["Default"] == "") {
 			return "null";
 		}
-		if($this->parseType($row["Type"]) == 'int' || 
-			$this->parseType($row["Type"]) == 'double' ||
-			$this->parseType($row["Type"]) == 'float') {
+		if($this->_parseType($row["Type"]) == 'int' || 
+			$this->_parseType($row["Type"]) == 'double' ||
+			$this->_parseType($row["Type"]) == 'float') {
 			return $row["Default"];
 		}
 		return "'" . addcslashes($row["Default"], "'") . "'";
@@ -585,5 +616,14 @@ class Model {
 	
 	
 }
+
+/**
+ * Define an autoload method
+ */
+ function __autoload($classname) {
+ 	if(preg_match("#Model\$#", $classname)) {
+ 		Model::getModelIfExists(str_replace('Model','',$classname));
+ 	}
+ }
 
 ?>

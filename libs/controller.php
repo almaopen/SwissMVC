@@ -19,7 +19,7 @@ class Controller {
 	 * Flag to display whether or not rendering should be done.
 	 * For example, redirect() sets this to false
 	 */
-	var $_renderView = true;
+	public $_renderView = true;
 	
 	/**
 	 * The input for this controller

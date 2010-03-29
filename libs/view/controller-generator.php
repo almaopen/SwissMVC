@@ -53,7 +53,7 @@ class ControllerGenerator {
 		$controllerHash = md5($controller . "/" . $action);
 		
 		if(!isset(ControllerGenerator::$generatedControllers[$controllerHash])) {
-			ContollerGenerator::$generatedControllers[$controllerHash] = 0;
+			ControllerGenerator::$generatedControllers[$controllerHash] = 0;
 		}
 		
 		ControllerGenerator::$generatedControllers[$controllerHash]++;

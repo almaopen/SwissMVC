@@ -15,7 +15,7 @@ class Session {
 	/**
 	 * Authentication status
 	 */
-	private $_authenticated = false;
+	private $_authenticated = array();
 	
 	/**
 	 * Permissions set for this user.
@@ -36,11 +36,7 @@ class Session {
 	 * Flash message
 	 */
 	private $_flashMessage = null;
-	
-	/**
-	 * History
-	 */
-	private $_pageStack = array();
+
 	
 	/**
 	 * Set the permissions for this user
@@ -68,23 +64,7 @@ class Session {
 		$this->_optionRealmKeys = array();
 		$this->_storeToInternalSession();
 	}
-	
-	public function lastPage() {
-		return "/" . $this->_pageStack[1];
-	}
-	
-	public function _setCurrentPage($page) {
-		if($this->_pageStack[0] == $page) return;
-		array_unshift($this->_pageStack, $page);
-		if(count($this->_pageStack) > 10) {
-			array_pop($this->_pageStack);
-		}
-	}
-	
-	public function _removePageFromHistory() {
-		array_unshift($this->_pageStack);
-	}
-	
+		
 	public function hasFlash() {
 		return ($this->_flashMessage != null);
 	}
@@ -99,7 +79,7 @@ class Session {
 	 * Get the options for a certain realm with the certain key
 	 */
 	public function getOptions($realm, $key) {
-		$needsLoading = true; // !TODO! These need to be cached, switch to false for production
+		$needsLoading = false;
 		if($this->_options[$realm] != null) {
 			if($this->_optionRealmKeys[$realm] != $key) {
 				$needsLoading = true;
@@ -141,15 +121,15 @@ class Session {
 	 * For example, when a user logs in, the action can set $this->Session->authenticateToApplication(true)
 	 * so other actions can easily then query: $this->Session->isAuthenticated();
 	 */
-	public function authenticateToApplication($flag) {
-		$this->_authenticated = $flag;
+	public function authenticateToApplication($flag, $realm = "_DEFAULT_REALM_") {
+		$this->_authenticated[$realm] = $flag;
 	}
 	
 	/**
 	 * Query the authentication status of this user
 	 */
-	public function isAuthenticated() {
-		return $this->_authenticated;
+	public function isAuthenticated($realm = "_DEFAULT_REALM_") {
+		return $this->_authenticated[$realm];
 	}
 	
 	/**
@@ -158,16 +138,17 @@ class Session {
 	 */
 	public function set($key, $value, $replace = true) {
 		
-		/*
-		if($key == "action.template") {
-			$ar = debug_backtrace();
-			$i = 1;
-			echo $ar[$i]["class"] . $ar[$i]["type"] . $ar[$i]["function"] . ":" . $ar[$i - 1]["line"] . "<br/>";
-		}
-		*/
-		
 		if($this->_sessionVariables[$key] != null && !$replace)
 			return;
+		
+		if(is_object($value)) {
+			$classname = get_class($value);
+			if(preg_match("#Model\$#", $classname)) {
+				$this->_storedClasses[$classname] = true;
+				$this->set("__SwissMVC_stored_classes", $this->_storedClasses);
+			}
+		}
+			
 		$this->_sessionVariables[$key] = $value;
 		$this->_storeToInternalSession();
 		
@@ -189,7 +170,8 @@ class Session {
 	public static function restoreSession() {
 		session_start();
 		if($_SESSION['simplemvcsession'] != null) {
-			return $_SESSION['simplemvcsession'];
+			$session = $_SESSION['simplemvcsession'];
+			return $session;
 		} else {
 			$session = new Session();
 			$_SESSION['simplemvcsession'] = $session;

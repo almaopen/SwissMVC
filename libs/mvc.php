@@ -4,6 +4,7 @@
 require_once(LIBS_ROOT . "/model/model.php");
 require_once(LIBS_ROOT . "/model/modelcache.php");
 require_once(LIBS_ROOT . "/model/validators.php");
+require_once(LIBS_ROOT . "/model/listener.php");
 
 // V
 require_once(LIBS_ROOT . "/view/view.php");
@@ -93,7 +94,7 @@ class MVC {
 													$methodParameters,
 													$queryString,
 													$presetVariables = array()) {
-		
+														
 		// Check routing
 		$routes = array();
 		if(property_exists('AppConfiguration', 'ROUTES')) {
@@ -180,7 +181,8 @@ class MVC {
 					$filter["target"][0] == "*") {
 					// Controller -part matches, see if the action matches	
 					if($filter["target"][1] == $controllerFunction ||
-						$filter["target"][1] == "*") {
+						$filter["target"][1] == "*" ||
+						(is_array($filter["target"][1]) && in_array($controllerFunction, $filter["target"][1]))) {
 							// Matches, execute the filter
 						if(!class_exists($filter["filter"])) {
 							require_once(WEBAPP_ROOT . "/filters/" . Inflector::decamelize($filter["filter"]) . ".php");
@@ -198,15 +200,17 @@ class MVC {
 								) === false) {
 						  // By returning false, the filter can stop the processing
 						  // Then we check if we just "die" or do we do some rendering
-						  if($filter->_renderView) {
+						  if($filterImpl->_renderView) {
 						  	MVC::renderView(
-						  		!empty($filter->view) ? $filter->view : $controllerFunction,
-						  		$filter->template,
+						  		!empty($filterImpl->view) ? $filterImpl->view : $controllerFunction,
+						  		$filterImpl->template,
+						  		$filterImpl->_contextVariables,
 						  		$controllerScript,
-						  		$controllerFunction,
-						  		$filter->_contextVariables
+						  		$controllerFunction
 						  	);
 						  }
+						  // Exit
+						  exit();
 						}
 					}
 				}				
@@ -223,39 +227,7 @@ class MVC {
 		 * Then continue to the controller
 		 */
 		call_user_func_array(array($controller, $controllerFunction), $methodParameters);
-		
-		/*
-		 * And fire off any plugins that may be configure for this controller and the action
-		 */
-		if(property_exists('AppConfiguration','PLUGINS')) {
-			
-			foreach(AppConfiguration::$PLUGINS as $plugin) {
-				if($plugin["target"][0] == $controllerScript ||
-					$plugin["target"][0] == "*") {
-					// Controller -part matches, see if the action matches	
-					if($plugin["target"][1] == $controllerFunction ||
-						$plugin["target"][1] == "*") {
-							// Matches, execute the filter
-						if(!class_exists($plugin["plugin"])) {
-							require_once(WEBAPP_ROOT . "/plugins/" . Inflector::decamelize($plugin["plugin"]) . ".php");
-						}
-						/*
-						 * Call the plugin. The plugin gets the following parameters:
-						 * controller name, action name, input (after the controller has had it) and the
-						 * variables set for the view by the controller. The variables are passed by
-						 * reference.
-						 */
-						call_user_func_array(
-								$plugin["plugin"], 
-								"execute",
-								array($controllerScript, $controllerFunction, $controller->input, &$controller->_contextVariables) 
-								);
-					}
-				}				
-			}			
-			
-		}
-		
+
 		/*
 		 * Render the view
 		 */
@@ -306,13 +278,20 @@ class MVC {
 		/*
 		 * Get the template that we're using
 		 */
-		if(!empty($template)) {
+		if(empty($template)) {
 			$template = "default";
 		}
 		
 		$layoutFile = WEBAPP_ROOT . "/templates/" . $template . ".phtml";
 		if(!file_exists($layoutFile)) {
 			controllerErrors::missingTemplate("webapp/templates/" . $template . ".phtml");
+		}
+		
+		/**
+		 * See if we have a page title
+		 */
+		if(isset($variables["title_for_page"])) {
+			$title_for_page = $variables["title_for_page"];
 		}
 		
 		/*

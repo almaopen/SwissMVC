@@ -39,7 +39,7 @@ class MailUtil {
 		$body = $mime->get();
 		$headers = $mime->headers($headers);
 		
-		$mail =& Mail::factory('smtp');
+		$mail =& Mail::factory('smtp', array("host" => "smtp.media.netti"));
 		$mail->send($recipients, $headers, $body);
 		
 	}

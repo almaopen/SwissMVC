@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
  <head>
   <meta http-equiv="content-type" value="text/html; charset=iso-8859-1"/>
-  <title><?=($title_for_page != '') ? $title_for_page . " - " : "" ?>SimpleMVC</title>
+  <title><?=($title_for_page != '') ? $title_for_page . " - " : "" ?>SwissMVC</title>
   <style type="text/css">
   <!--
   body {
@@ -32,7 +32,7 @@
   </style>
  </head>
  <body>
-  <h1>SimpleMVC Error</h1>
+  <h1>SwissMVC Error</h1>
   <p>An error occured when processing this action.</p>
   <div class="error">
    <?=$error_description;?>
