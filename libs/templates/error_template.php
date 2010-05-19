@@ -49,9 +49,11 @@
    <?=$error_fix;?>
   </div>
   <?endif;?>
+  <?if($show_backtrace !== false):?>
   <h2>Backtrace</h2>
   <div class="fix">
    <pre><?debug_print_backtrace()?></pre>
   </div>
+  <?endif;?>
  </body>
 </html>

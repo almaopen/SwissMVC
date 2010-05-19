@@ -26,6 +26,10 @@ abstract class ModelListener {
 	 */
 	public static function findListeners($model, $event) {
 		
+		if(!property_exists("AppConfiguration", "MODEL_LISTENERS")) {
+			return;
+		}
+		
 		$model = strtolower($model);
 		
 		if(!empty(AppConfiguration::$MODEL_LISTENERS[$model])) {
@@ -48,6 +52,11 @@ abstract class ModelListener {
 	 * Invoke listeners
 	 */
 	public static function invokeListeners($listeners, $data, $event) {
+		
+		if(!property_exists("AppConfiguration", "MODEL_LISTENERS")) {
+			return;
+		}		
+		
 		// Fire off events to the listeners
 		foreach($listeners as $listener) {
 			$listener_class = $listener["listener"];

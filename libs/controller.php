@@ -54,6 +54,11 @@ class Controller {
 	 */
 	private $controllerName = null;
 	
+	/**
+	 * API response
+	 */
+	private $apiResponse = null;
+	
 	var $view = null;
 	
 	/**
@@ -89,7 +94,7 @@ class Controller {
 		 */
 		if(property_exists('AppConfiguration', 'AUTOLOAD_MODELS')) {
 			foreach(AppConfiguration::$AUTOLOAD_MODELS as $model) {
-				$casedName = strtoupper(substr($model, 0, 1)) . strtolower(substr($model, 1));
+				$casedName = Inflector::camelize($model);
 				$this->$casedName = Model::getModel($model);
 			}
 		}
@@ -120,8 +125,22 @@ class Controller {
 	}
 	
 	public final function redirect($target) {
+		
+		if(defined("MVC_DISABLE_REDIRECTS")) {
+			/* Disabled by API */
+			return;
+		}
+		
 		header("Location: $target");
 		$this->_renderView = false;
+	}
+	
+	public function setAPIResponse($data) {
+		$this->apiResponse = $data;
+	}
+	
+	public function getAPIResponse() {
+		return $this->apiResponse;
 	}
 	
 	public final function __sleep() {

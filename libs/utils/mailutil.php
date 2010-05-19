@@ -20,10 +20,14 @@ class MailUtil {
 		$this->variables[$key] = $val;
 	}
 	
-	public function send($recipients, $subject, $from) {
+	public function send($recipients, $subject, $from = null) {
 		
 		include('Mail.php');
 		include('Mail/mime.php');
+		
+		if($from == null) {
+			$from = "no-reply@" . $_SERVER['HTTP_HOST'];
+		}
 		
 		$headers = array(
 			"From" => $from,
@@ -39,7 +43,7 @@ class MailUtil {
 		$body = $mime->get();
 		$headers = $mime->headers($headers);
 		
-		$mail =& Mail::factory('smtp', array("host" => "smtp.media.netti"));
+		$mail =& Mail::factory('smtp', array("host" => "mail.inet.fi"));
 		$mail->send($recipients, $headers, $body);
 		
 	}

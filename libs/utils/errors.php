@@ -1,8 +1,8 @@
 <?php
 
-class SimpleMVCErrors {
+class SwissMVCErrors {
 	
-	public static function generalError($error) {
+	public static function generalError($error, $show_backtrace = true) {
 		ob_end_clean();
 		$error_description = $error;
 		$title_for_page = "General Application Error";

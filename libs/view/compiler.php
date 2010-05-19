@@ -2,6 +2,9 @@
 
 class ViewCompiler {
 	
+	/* Elements than can be closed with />, others with ></tag> */
+	public static $SIMPLE_ELEMENTS = array("hr","br","img","link","meta", "input");
+	
 	public $controller = null;
 	public $method = null;
 	public $viewPath = null;
@@ -43,7 +46,8 @@ class ViewCompiler {
 
 		} else {
 			// Create normal HTML -element
-			$elemBase = "<%s" . ($node->hasAttributes() ? " %s" : "") . ($node->hasChildNodes() ? ">" : "/>");
+			$elemBase = "<%s" . ($node->hasAttributes() ? " %s" : "") . ($node->hasChildNodes() ? ">" : 
+				(in_array($node->tagName, ViewCompiler::$SIMPLE_ELEMENTS) ? "/>" : "></%s>"));
 			$attributes = array();
 			foreach($node->attributes as $attribute) {
 				$attributes[] = $attribute->name . "=\"" . $attribute->value . "\"";
@@ -63,7 +67,11 @@ class ViewCompiler {
 				echo "</" . $node->tagName . ">";
 			} else {
 				
-				printf($elemBase, $node->tagName, join($attributes, " "));
+				if(in_array($node->tagName, ViewCompiler::$SIMPLE_ELEMENTS)) {
+					printf($elemBase, $node->tagName, join($attributes, " "));
+				} else {
+					printf($elemBase, $node->tagName, join($attributes, " "), $node->tagName);					
+				}
 				
 			}
 			
@@ -75,8 +83,11 @@ class ViewCompiler {
 	
 	public static function compileView($path, $file, $controller, $function) {
 		
+		/* Set an error handler to trap compilation errors */
+		set_error_handler("ViewCompiler::errorHandler", E_WARNING);
+		
 		/* Wrap the file in <mvc:components> to make sure it's XML */
-		$file = "<mvc:components xmlns:mvc=\"http://simplemvc.org/ns/2010\">\n$file\n</mvc:components>";
+		$file = "<mvc:components xmlns:mvc=\"http://simplemvc.org/ns/2010\">$file\n</mvc:components>";
 		
 		/* 
 		 * We need to do some modifications to the file so it's processed properly, for example
@@ -185,7 +196,8 @@ class ViewCompiler {
 			"#-->#" => "MVC_HTML_COMMENT_END",
 			"#<\?(php)?#" => "MVC_PHP_CODE_START",
 			"#\?>#" => "MVC_PHP_CODE_END",
-			"#< #" => "MVC_OPEN_TAG"
+			"#< #" => "MVC_OPEN_TAG",
+			"#&#" => "MVC_ENT_START"
 		);
 	
 	private static $clean_rules = array(
@@ -193,7 +205,8 @@ class ViewCompiler {
 			"#MVC_HTML_COMMENT_END#" => "-->",
 			"#MVC_PHP_CODE_START#" => "<?",
 			"#MVC_PHP_CODE_END#" => "?>",
-			"#MVC_OPEN_TAG#" => "< "
+			"#MVC_OPEN_TAG#" => "< ",
+			"#MVC_ENT_START#" => "&"
 		);
 	
 	
@@ -209,6 +222,15 @@ class ViewCompiler {
 			$file = preg_replace($regex, $replace, $file);
 		}
 		return $file;		
+	}
+	
+	public static function errorHandler($errno, $errstr, $errfile, $errline, $errcontext) {
+		if(strpos("DOMDocument::loadXML()", $errstr) == 0) {
+			// Parse error
+			list($prefix, $error) = explode("]: ", $errstr);
+			SwissMVCErrors::generalError("Could not compile view " . realpath($errcontext["path"]) . ": " . $error, false);
+		}
+		return false;
 	}
 	
 }

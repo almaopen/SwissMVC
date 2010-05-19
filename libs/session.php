@@ -79,7 +79,7 @@ class Session {
 	 * Get the options for a certain realm with the certain key
 	 */
 	public function getOptions($realm, $key) {
-		$needsLoading = false;
+		$needsLoading = true;
 		if($this->_options[$realm] != null) {
 			if($this->_optionRealmKeys[$realm] != $key) {
 				$needsLoading = true;

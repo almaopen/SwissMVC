@@ -50,22 +50,23 @@ class Options {
 	 * Creates a new Options -set
 	 */
 	public function Options($realm, $values = array()) {
+		
 		$this->_optionRealm = $realm;
 		if(!class_exists("AppConfiguration")) {
 			SimpleMVCErrors::generalError("Application configuration class not available but is required by Options-class. " . 
 					"Make sure that webapp/application.conf.php is present");
 		}
-		if(!is_array(AppConfiguration::$OPTIONS[$realm])) {
-			SimpleMVCErrors::generalError("Requesting options for non-existant Options-realm: $realm. Make sure " .
+		if(property_exists('AppConfiguration', 'OPTIONS')) {
+			if(!is_array(AppConfiguration::$OPTIONS[$realm])) {
+				SimpleMVCErrors::generalError("Requesting options for non-existant Options-realm: $realm. Make sure " .
 				"webapp/application.conf.php contains \$OPTIONS[\"$realm\"].");
-		}
-		$this->_realmConfig = AppConfiguration::$OPTIONS[$realm];
-		// if(!empty($values)) {
+			}
+			$this->_realmConfig = AppConfiguration::$OPTIONS[$realm];
 			$this->_initializeWithDefaults();
 			foreach($values as $key => $value) {
 				$this->_realmOptions[$key] = $value;				
 			}
-		// }
+		}
 	}
 	
 	/**

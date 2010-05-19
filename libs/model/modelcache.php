@@ -42,11 +42,7 @@ class ModelCache {
 	}
 	
 	public function getFields() {
-		$fields = array();
-		foreach(array_keys($this->modelStructure) as $fld) {
-			$fields[] = $fld;
-		}
-		return $fields;
+		return array_keys($this->modelStructure);
 	}
 	
 	public function hasField($fld) {
@@ -62,12 +58,12 @@ class ModelCache {
 			$value = "'" . Datasource::escape($value) . "'";
 		} else if($this->modelStructure[$fld]["type"] == "tinyint") {
 			if(!(intval($value) == 0 || intval($value) == 1)) {
-				SimpleMVCErrors::generalError("Given value ($value) is not a valid boolean value");
+				SwissMVCErrors::generalError("Given value ($value) is not a valid boolean value");
 			}
 		} else {
 			// Assume to be numeric
 			if(!is_numeric($value) && $value != 'NULL') {
-				SimpleMVCErrors::generalError("$value given as numeric database input (" . $this->modelSource . ".$fld)");
+				SwissMVCErrors::generalError("$value given as numeric database input (" . $this->modelSource . ".$fld)");
 			}
 		}
 		return $value;

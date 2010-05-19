@@ -16,6 +16,14 @@ class UserModel extends Model {
 							
 	);
 	
+	var $validators = array(
+	
+		"username" => array(
+			
+		)
+	
+	);
+	
 }
 
 ?>

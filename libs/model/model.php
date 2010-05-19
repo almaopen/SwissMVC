@@ -11,7 +11,7 @@ class Model {
 	 */
 	public static function getModel($name) {
 
-		$modelClass = strtoupper(substr($name, 0, 1)) . substr($name, 1) . "Model";
+		$modelClass = Inflector::camelize($name) . "Model";
 		if(!class_exists($modelClass)) {
 			// See if the file exists
 			if(file_exists(WEBAPP_ROOT . "/models/" . strtolower($name) . ".php")) {
@@ -85,7 +85,7 @@ class Model {
 		
 		$this->modelName = $modelName;
  		$structure = "ModelCache_" . strtolower($modelName);
- 		if(!class_exists($structure)) {
+ 		if(!class_exists($structure)  && $cacheTable) {
 	 		if(file_exists(WEBAPP_ROOT . "/tmp/modelcache/" . md5($modelName) . ".php") &&
 			 		$cacheTable) {
 		 		require_once(WEBAPP_ROOT . "/tmp/modelcache/" . md5($modelName) . ".php");
@@ -93,9 +93,22 @@ class Model {
 		 		$this->__cacheTable($modelName);	
 		 		require_once(WEBAPP_ROOT . "/tmp/modelcache/" . md5($modelName) . ".php");
 	 		}
- 		} 		
+ 		} else {
+ 			if(!$cacheTable) {
+	 			$this->__cacheTable($modelName);	
+	 			require_once(WEBAPP_ROOT . "/tmp/modelcache/" . md5($modelName) . ".php");
+ 			}
+ 		}
 		$this->modelCache = new $structure();
 		$this->modelStructure = $this->modelCache->getModelStructure();
+	}
+	
+	public function getVisibleFields() {
+		return $this->modelCache->getFields();
+	}
+	
+	public function getHiddenFields() {
+		return array();
 	}
 	
 	public function save($data = array()) {
@@ -139,12 +152,12 @@ class Model {
 			$model_listeners = ModelListener::findListeners($this->modelName);
 			$model_items = null;
 			if(!empty($model_listeners)) {
-					$model_items = Datasource::query(sprintf("select * from `%s` where %s", $this->modelName, join($cond, " AND ")));
+					$model_items = Datasource::query(sprintf("select * from `%s` where %s", strtolower($this->modelName), join($cond, " AND ")));
 			}
 			
 			Datasource::query(
 				sprintf($query,
-						$this->modelName,
+						strtolower($this->modelName),
 						join($cond, " AND "))
 			);
 			
@@ -188,7 +201,7 @@ class Model {
 					$sb_model_listeners = ModelListener::findListeners($sbModelName);	
 					if(!empty($sb_model_listeners)) {
 						$sb_model_items = Datasource::query(
-							sprintf("select * from `%s` where `%s`=%s", $sbModelName, $fieldname, 
+							sprintf("select * from `%s` where `%s`=%s", strtolower($sbModelName), $fieldname, 
 									$this->originalValues[$this->modelCache->getPrimaryKey()]));
 					}
 									
@@ -286,7 +299,7 @@ class Model {
 		 */
 		foreach($results as $row) {
 			$model = Model::getModel($this->modelCache->getModelSource());
-			foreach($this->modelCache->getFieldsForQuery() as $field) {
+			foreach($this->modelCache->getFields() as $field) {
 				$model->$field = $row[$field];
 				$model->fields[] = $field;
 				$model->originalValues[$field] = $row[$field];
@@ -346,17 +359,17 @@ class Model {
 		
 		$fieldNames = array();
 		$dataFields = array();
-		
-		foreach($this->modelCache->getFieldsForQuery() as $field) {
+						
+		foreach($this->modelCache->getFields() as $field) {
 			if(isset($data[$field])) {
 				$fieldNames[] = "`$field`";
 				$dataFields[] = $this->__prepareField($field, $data[$field]);
 			}
 		}
-		
+				
 		$id = Datasource::query(sprintf(
 								 $insertBaseQuery,
-								 $this->modelName,
+								 strtolower($this->modelName),
 								 join($fieldNames, ","),
 								 join($dataFields, ",")
 								));
@@ -400,17 +413,23 @@ class Model {
 			}
 		}
 		
+		/**
+		 * Nothing to update
+		 */
+		if(empty($updatedFields)) {
+			return;			
+		}
+		
 		/*
 		 * Create the actual query
 		 */
 		$query = sprintf(
 					$updateQueryBase, 
-					$this->modelName, // Target 
+					strtolower($this->modelName), // Target 
 					join($updatedFields, ","), // Fields to update 
 					$this->modelCache->getPrimaryKey(),
 					$this->originalValues[$this->modelCache->getPrimaryKey()] // Primary key
 					);
-					
 		Datasource::query($query);
 		
 		/**
@@ -445,22 +464,62 @@ class Model {
 		}
 		
 		if(is_array($this->validators)) {
-			foreach(array_keys($this->validators) as $field) {
-				foreach($this->validators[$field] as $validator) {
-				
-					$method = $validator["validator"];
-					$params = (empty($validator["params"]) ? array() : $validator["params"]);
-					
-					// Can't use checkUnique with update, as it will always fail
-					if(!empty($this->originalValues) && $method == 'checkUnique')
-						continue;
-					
-					if(!Validator::$method($data[$field], $params)) {
-						$this->errors[$field] = $validator["error"];
+			
+			/**
+			 * Iterate through the fields
+			 */
+			foreach($this->validators as $field => $validators) {
+				if(is_array($validators)) {
+					/**
+					 * And each of the validators for the field
+					 */
+					foreach($validators as $validator => $parameters) {
+						/**
+						 * Validators can be defined without parameters, so if $parameters is not an arrary, 
+						 * then it actually contains the name of our validator
+						 */
+						if(!is_array($parameters)) {
+							$validator = $parameters;
+							$parameters = array();
+						}
+						
+						/**
+						 * Find the validator and execute it
+						 */
+						$validatorClass = Inflector::camelize(sprintf("%s_validator", $validator));
+						if(!class_exists($validatorClass)) {
+							/**
+							 * Try to find the validator implementation file
+							 */
+							$path = sprintf("%s/validators/%s.php", dirname(__FILE__), strtolower($validator));
+							if(!file_exists($path)) {
+								SwissMVCErrors::generalError("Error in " . get_class($this) . "->validators: Could not find validator class file ($path) for validator '$validator'", false);
+							} 
+							require_once($path);
+							// Now make sure that the class actually was in the file
+							if(!class_exists($validatorClass)) {
+								SwissMVCErrors::generalError("Error in " . get_class($this) . "->validators: Could not find validator implementation '$validator'. File was found, but doesn't contain correct implementation " .
+									"(class $validatorClass not found).", false);
+							}
+						}
+						$_impl = new $validatorClass();
+						/* Do the actual validation. If validator returns true, the field is valid */
+						if(($response = $_impl->validate($data[$field], $parameters)) !== true) {
+							if(!is_array($this->errors[$field])) {
+								$this->errors[$field] = array();
+							}
+							$this->errors[$field][] = $response;
+						}
+						
 					}
 				}
-				
 			}
+			
+		}
+		
+		if(!empty($this->errors)) {
+			// Pass validation stuff to the controller
+			MVCContext::getContext()->getController()->errors = $this->errors;
 		}
 		
 		return empty($this->errors);
@@ -474,14 +533,14 @@ class Model {
 
 		if(!empty($query["conditions"])) {
 	 		if(isset($query["fields"])) {
- 				$sqlQuery .= "`" . $this->modelName . "`.`" . join($query["fields"], "`,`" . $this->modelName . "`.`") . "` from `" .
-	 				$this->modelCache->getModelSource() . "`";
+ 				$sqlQuery .= "`" . strtolower($this->modelName) . "`.`" . join($query["fields"], "`,`" . $this->modelName . "`.`") . "` from `" .
+	 				strtolower($this->modelCache->getModelSource()) . "`";
 	 		} else {
 		 		$sqlQuery .= "* from `" .
-			 		$this->modelCache->getModelSource() . "`";	 	
+			 		strtolower($this->modelCache->getModelSource()) . "`";	 	
 	 		}
 		} else {
-			$sqlQuery .= "* from `" . $this->modelCache->getModelSource() . "`";	 				
+			$sqlQuery .= "* from `" . strtolower($this->modelCache->getModelSource()) . "`";	 				
 			$qTemp = $query;
 			$single = ($qTemp["limit"] == 1);
 			unset($qTemp["limit"]);			

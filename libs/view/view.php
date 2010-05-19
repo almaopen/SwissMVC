@@ -13,13 +13,29 @@ class View {
 	 */
 	public $path = null;
 	
-	public function View($viewPath) {
+	/**
+	 * The controller
+	 */
+	private $contoller = null;
+	
+	private $contents = null;
+	
+	/**
+	 * The channel we're rendering in
+	 */
+	private $channel = null;
+	
+	public function View($viewPath, $channel = null) {
 		$this->path = $viewPath;
+		$this->channel = $channel;
+		$this->session = Session::restoreSession();
 	}
 	
 	public function render($vars, $controller, $function) {
 		
-		$this->html = new HtmlHelper($controller);
+		$this->controller = $controller;
+		
+		$this->html = new HtmlHelper(MVCContext::getContext()->getController());
 		
 		extract($vars);
 		
@@ -28,8 +44,29 @@ class View {
 		$contents = ob_get_contents();
 		ob_end_clean();
 		
-		return $contents;
+		$this->contents = $contents;
 		
+	}
+	
+	public function common($file) {
+
+		$path = WEBAPP_ROOT . "/views/" . (empty($this->channel) ? "" : $this->channel . "/") . "common/$file.php";
+		if(!file_exists($path)) {
+			SwissMVCErrors::generalError("Cannot find view include $path", false);
+		}
+		
+		include($path);
+		
+	}
+	
+	public function showTemplate($file) {
+		$content_for_template = $this->contents;
+		if(isset($this->controller->_contextVariables["title_for_page"])) {
+			$title_for_page = $this->controller->_contextVariables["title_for_page"];
+		}
+		
+		
+		include($file);
 	}
 	
 	public static function renderView($path, $vars) {
@@ -37,6 +74,7 @@ class View {
 		return $v->render($vars);
 	}
 	
+
 }
 
 ?>

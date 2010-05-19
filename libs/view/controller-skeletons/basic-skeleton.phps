@@ -10,9 +10,7 @@ class {name}Controller extends Controller
 			}
 		}
 		extract($_POST);
-		?>
-		{code}
-		<?
+		?>{code}<?
 		exit();
 	}
 

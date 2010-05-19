@@ -19,6 +19,7 @@ require_once(LIBS_ROOT . "/filter.php");
 
 require_once(LIBS_ROOT . "/datasource/datasource.php");
 
+require_once(LIBS_ROOT . "/context.php");
 require_once(LIBS_ROOT . "/utils/inflector.php");
 require_once(LIBS_ROOT . "/utils/controller_errors.php");
 require_once(LIBS_ROOT . "/utils/errors.php");
@@ -39,8 +40,10 @@ require_once(WEBAPP_ROOT . "/application.conf.php");
 
 class MVC {
 	
-	
-	public static final function parseRequest() {
+	/**
+	 * Parse the request URL and execute the controller, or call callback with parsed details
+	 */
+	public static final function parseRequest($callback = null) {
 		
 		/*
 		 * Parse the request
@@ -54,6 +57,11 @@ class MVC {
 			$requestURI = $_GET['url'];
 		}
 		
+		if(property_exists("AppConfiguration", "APP_PATH")) {
+			$path = AppConfiguration::$APP_PATH;
+			$requestURI = preg_replace("#^$path#", "", $requestURI);
+		}
+		
 		// Parse controller parameters
 		$controllerParams = array();
 		if(strpos($requestURI, ";") !== false) {
@@ -64,9 +72,11 @@ class MVC {
 				$controllerParams[$key] = $value;
 			}
 		}
+		
 
 		// Parse the URL
 		$urlParts = explode("/", $requestURI);
+		
 		$controllerScript = $urlParts[0];
 		if(empty($controllerScript)) {
 			$controllerScript = "index";
@@ -75,15 +85,19 @@ class MVC {
 		// Function is $urlParts[1]
 		$controllerFunction = ($urlParts[1] == null ? "index" : $urlParts[1]);
 		
-		MVC::executeController
-			(
-				$controllerScript,
-				$controllerFunction,
-				$controllerParams,
-				$requestURI,
-				array_slice($urlParts, 2),
-				$params
-			);
+		if(empty($callback)) {
+			MVC::executeController
+				(
+					$controllerScript,
+					$controllerFunction,
+					$controllerParams,
+					$requestURI,
+					array_slice($urlParts, 2),
+					$params
+				);
+		} else {
+			call_user_func_array($callback, array($controllerScript, $controllerFunction, $controllerParams, $requestURI, array_slice($urlParts, 2), $params));
+		}
 		
 	}	
 
@@ -94,6 +108,15 @@ class MVC {
 													$methodParameters,
 													$queryString,
 													$presetVariables = array()) {
+													
+		// First enable the API, if used
+		if(property_exists('AppConfiguration', 'API')) {
+			if(!empty(AppConfiguration::$API)) {
+				// Include the APIController, which will load itself in the routes as well
+				require_once(LIBS_ROOT . "/api.php");
+			}
+		}
+		
 														
 		// Check routing
 		$routes = array();
@@ -120,8 +143,7 @@ class MVC {
 			$controllerFilename = WEBAPP_ROOT . "/controllers/" . $controllerScript . "_controller.php";
 			$controllerClass = ucfirst($controllerScript) . "Controller";
 		}
-
-		
+				
 		if(!file_exists($controllerFilename)) {
 			controllerErrors::missingcontroller($controllerScript);			
 		}
@@ -135,6 +157,9 @@ class MVC {
 		$controller->_requestURI = $requestURI;
 		$controller->params = $controllerParams;
 		$controller->controllerName = strtolower($controllerScript);
+		
+		/* Set the controller to the context */
+		MVCContext::getContext()->setController(&$controller);
 
 		if(!empty($presetVariables)) {
 			$controller->_contextVariables = $presetVariables;
@@ -248,9 +273,16 @@ class MVC {
 			
 		}
 		
+		return $controller;
+		
 	} 
 	
 	public static function renderView($viewFile, $template, $variables, $script, $function) {
+		
+		/* API (for example) needs to disable view rendering */
+		if(defined("MVC_DISABLE_VIEW_RENDERING")) {
+			return;
+		}
 		
 		/*
 		 * See which channel we should be using. If the configuration file contains the AUTO_CHANNEL_SELECTION
@@ -263,7 +295,7 @@ class MVC {
 			}
 		}
 		
-		$view = new View(WEBAPP_ROOT . "/views/$channel/$script/$viewFile.php");
+		$view = new View(WEBAPP_ROOT . "/views/$channel/$script/$viewFile.php", $channel);
 
 		if(!file_exists($view->path)) {
 			ControllerErrors::missingView($script, $function, "WEBAPP_ROOT/views/$channel/" . $script . "/" .
@@ -286,18 +318,11 @@ class MVC {
 		if(!file_exists($layoutFile)) {
 			controllerErrors::missingTemplate("webapp/templates/" . $template . ".phtml");
 		}
-		
-		/**
-		 * See if we have a page title
-		 */
-		if(isset($variables["title_for_page"])) {
-			$title_for_page = $variables["title_for_page"];
-		}
-		
+				
 		/*
 		 * Include the layoutfile
 		 */
-		require_once($layoutFile);
+		$view->showTemplate($layoutFile);
 		
 		
 	}

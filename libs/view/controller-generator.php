@@ -78,7 +78,13 @@ class ControllerGenerator {
 				"Temp${controllerHash}_" . ControllerGenerator::$generatedControllers[$controllerHash] . "Controller"
 			);
 		
-		return "/${controllerHash}_" . ControllerGenerator::$generatedControllers[$controllerHash] . "/func";		
+		if(property_exists("AppConfiguration", "APP_PATH")) {
+			$path_prefix = AppConfiguration::$APP_PATH;
+		} else {
+			$path_prefix = "";
+		}
+		
+		return "${path_prefix}/${controllerHash}_" . ControllerGenerator::$generatedControllers[$controllerHash] . "/func";		
 
 	}
 	
